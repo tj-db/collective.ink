@@ -1,1 +1,268 @@
-test
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>collective.ink — collective journaling</title>
+<link rel="icon" href="data:," />
+<style>
+  :root{
+    --bg:#0b0f12;
+    --card:#0f1417;
+    --muted:#9aa6ad;
+    --accent:#7c5cff;
+    --glass: rgba(255,255,255,0.03);
+    --glass-2: rgba(255,255,255,0.02);
+    --success:#2ecc71;
+    --danger:#ff6b6b;
+    --radius:14px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace;
+    color-scheme: dark;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#050608 0%, #071018 100%);font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+  .app{min-height:100vh;display:grid;grid-template-rows:64px 1fr;gap:20px;padding:20px;box-sizing:border-box;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .left-info{display:flex;align-items:center;gap:12px;}
+  .alias{background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:10px 14px;border-radius:12px;display:flex;align-items:center;gap:10px;box-shadow: 0 4px 18px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);}
+  .alias .name{font-weight:600;color:#e6eef6;}
+  .alias .meta{font-size:12px;color:var(--muted);}
+  .right-profile{display:flex;align-items:center;gap:12px;}
+  .points{color:var(--muted);font-size:13px;padding:8px 10px;border-radius:10px;background:var(--glass-2);}
+  .profile-btn{width:44px;height:44px;border-radius:999px;overflow:hidden;border:2px solid rgba(255,255,255,0.04);display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));cursor:pointer;}
+  .profile-btn img{width:100%;height:100%;object-fit:cover;display:block;}
+  .main{display:flex;gap:20px;align-items:flex-start;}
+  .feed{flex:1;max-width:900px;margin:0 auto;width:100%;}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:22px;color:#dbe9f2;box-shadow: 0 10px 30px rgba(2,6,10,0.6);min-height:320px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;}
+  .card .meta{display:flex;align-items:center;gap:12px;}
+  .card .meta .title{font-weight:700;font-size:16px;}
+  .card .meta .sub{font-size:12px;color:var(--muted);}
+  .entry{margin-top:6px;font-size:15px;line-height:1.6;color:#dbe9f2;white-space:pre-wrap;overflow:auto;max-height:420px;}
+  .controls{display:flex;gap:8px;margin-top:auto;align-items:center;}
+  .btn{background:linear-gradient(90deg,var(--accent), #5b3bff);color:white;padding:10px 14px;border-radius:10px;border:none;cursor:pointer;font-weight:600;box-shadow: 0 6px 18px rgba(124,92,255,0.18);}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);font-weight:600;}
+  .fab{position:fixed;right:22px;bottom:22px;width:64px;height:64px;border-radius:999px;background:linear-gradient(180deg,#8b6bff,#5b3bff);display:flex;align-items:center;justify-content:center;color:white;font-size:22px;box-shadow:0 12px 30px rgba(91,59,255,0.28);cursor:pointer;border:none;}
+  .modal-backdrop{position:fixed;inset:0;background:linear-gradient(180deg, rgba(2,6,10,0.6), rgba(2,6,10,0.8));display:none;align-items:center;justify-content:center;padding:20px;z-index:60;}
+  .modal{width:100%;max-width:720px;background:var(--card);border-radius:16px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,0.7);}
+  .modal h3{margin:0 0 8px 0;color:#eaf4ff;}
+  .modal .row{display:flex;gap:12px;align-items:center;margin-bottom:12px;}
+  .modal label{font-size:13px;color:var(--muted);min-width:110px;}
+  .modal input[type="text"], .modal textarea{flex:1;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:#eaf4ff;font-size:14px;outline:none;}
+  .modal textarea{min-height:160px;resize:vertical;}
+  .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+  .muted{color:var(--muted);font-size:13px;}
+  .center{display:flex;align-items:center;justify-content:center;}
+  .swipe-hint{font-size:12px;color:var(--muted);margin-top:8px;text-align:center;}
+  @media (max-width:720px){
+    .card{padding:16px;border-radius:12px;}
+    .alias{padding:8px 10px;border-radius:10px;}
+    .profile-btn{width:40px;height:40px;}
+    .fab{width:56px;height:56px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="left-info">
+      <div class="alias" id="aliasBox" title="Click to edit alias">
+        <div>
+          <div class="name" id="aliasName">anon</div>
+          <div class="meta" id="uuidMeta">—</div>
+        </div>
+      </div>
+    </div>
+    <div class="right-profile">
+      <div class="points" id="pointsBox">Points: 0</div>
+      <div class="profile-btn" id="profileBtn" title="Open profile">
+        <img id="profileImg" src="profile.jpg" alt="profile" />
+      </div>
+    </div>
+  </div>
+  <main class="main">
+    <section class="feed">
+      <div class="card" id="feedCard" tabindex="0" aria-live="polite">
+        <div class="meta">
+          <div class="title" id="feedTitle">Loading…</div>
+          <div class="sub" id="feedSub">collective.ink feed</div>
+        </div>
+        <div class="entry" id="feedEntry">Fetching entries from repository…</div>
+        <div class="controls">
+          <button class="btn ghost" id="prevBtn">◀ Prev</button>
+          <button class="btn ghost" id="nextBtn">Next ▶</button>
+          <div style="flex:1"></div>
+          <div class="muted" id="feedIndex">0 / 0</div>
+        </div>
+        <div class="swipe-hint" id="swipeHint">Swipe left to cycle entries</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="submitModal" role="dialog" aria-modal="true">
+  <div class="modal" role="document">
+    <h3>New Journal Entry</h3>
+    <div class="row">
+      <label>From</label>
+      <div class="muted" id="submitFrom">anon</div>
+    </div>
+    <div class="row">
+      <label>Entry</label>
+      <textarea id="entryText" placeholder="Write something..."></textarea>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="cancelSubmit">Cancel</button>
+      <button class="btn" id="sendSubmit">Submit</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="profileModal" role="dialog" aria-modal="true">
+  <div class="modal" role="document">
+    <h3>Profile</h3>
+    <div class="row">
+      <label>Username</label>
+      <input type="text" id="aliasInput" placeholder="anon" />
+    </div>
+    <div class="row">
+      <label>Profile Image</label>
+      <input type="file" id="profileFile" accept="image/*" />
+    </div>
+    <div class="row">
+      <label>Preview</label>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:64px;height:64px;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,0.04);">
+          <img id="profilePreview" src="profile.jpg" style="width:100%;height:100%;object-fit:cover;" alt="preview" />
+        </div>
+        <div class="muted" id="profileUuid">UUID: —</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="closeProfile">Close</button>
+      <button class="btn" id="saveProfile">Save</button>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="openSubmit" title="Write a new entry">✎</button>
+
+<iframe id="hiddenSubmitFrame" style="display:none" aria-hidden="true"></iframe>
+
+<script>
+function safeGet(k,d){try{return localStorage.getItem(k)===null?d:localStorage.getItem(k)}catch(e){return d}}
+function safeSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function makeTimestampedUUID(){const t=Date.now();const r=(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():Math.random().toString(36).slice(2,10);return t+'-'+r}
+let uuid=safeGet('uuid',null)
+if(!uuid){uuid=makeTimestampedUUID();safeSet('uuid',uuid)}
+const aliasKey='alias'
+const profileImageKey='profile-image'
+const pointsKey='points'
+let alias=safeGet(aliasKey,'anon')
+let profileImage=safeGet(profileImageKey,'')
+let points=parseInt(safeGet(pointsKey,'0'),10)||0
+
+const aliasNameEl=document.getElementById('aliasName')
+const uuidMetaEl=document.getElementById('uuidMeta')
+const profileImgEl=document.getElementById('profileImg')
+const pointsBox=document.getElementById('pointsBox')
+const profileBtn=document.getElementById('profileBtn')
+const profileModal=document.getElementById('profileModal')
+const profilePreview=document.getElementById('profilePreview')
+const profileFile=document.getElementById('profileFile')
+const aliasInput=document.getElementById('aliasInput')
+const profileUuid=document.getElementById('profileUuid')
+const saveProfileBtn=document.getElementById('saveProfile')
+const closeProfileBtn=document.getElementById('closeProfile')
+const aliasBox=document.getElementById('aliasBox')
+const openSubmitBtn=document.getElementById('openSubmit')
+const submitModal=document.getElementById('submitModal')
+const cancelSubmitBtn=document.getElementById('cancelSubmit')
+const sendSubmitBtn=document.getElementById('sendSubmit')
+const entryText=document.getElementById('entryText')
+const submitFrom=document.getElementById('submitFrom')
+const feedTitle=document.getElementById('feedTitle')
+const feedSub=document.getElementById('feedSub')
+const feedEntry=document.getElementById('feedEntry')
+const feedIndex=document.getElementById('feedIndex')
+const prevBtn=document.getElementById('prevBtn')
+const nextBtn=document.getElementById('nextBtn')
+const feedCard=document.getElementById('feedCard')
+const hiddenFrame=document.getElementById('hiddenSubmitFrame')
+
+function renderProfile(){aliasNameEl.textContent=alias||'anon';uuidMetaEl.textContent='ID '+uuid;submitFrom.textContent=alias||'anon';aliasInput.value=alias||'';profileUuid.textContent='UUID: '+uuid;pointsBox.textContent='Points: '+points;if(profileImage&&profileImage.length>0){profileImgEl.src=profileImage;profilePreview.src=profileImage}else{profileImgEl.src='profile.jpg';profilePreview.src='profile.jpg'}}
+renderProfile()
+
+profileBtn.addEventListener('click',()=>{profileModal.style.display='flex';profileModal.querySelector('.modal').focus()})
+closeProfileBtn.addEventListener('click',()=>{profileModal.style.display='none'})
+aliasBox.addEventListener('click',()=>{profileModal.style.display='flex';aliasInput.focus()})
+profileFile.addEventListener('change',(e)=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{profilePreview.src=r.result};r.readAsDataURL(f)})
+saveProfileBtn.addEventListener('click',()=>{const newAlias=(aliasInput.value||'').trim()||'anon';alias=newAlias;safeSet(aliasKey,alias);if(profilePreview.src&&profilePreview.src.startsWith('data:')){profileImage=profilePreview.src;safeSet(profileImageKey,profileImage)}else{if(profilePreview.src&&profilePreview.src.endsWith('profile.jpg')){profileImage='';safeSet(profileImageKey,'')}};renderProfile();profileModal.style.display='none'})
+
+openSubmitBtn.addEventListener('click',()=>{submitModal.style.display='flex';entryText.value='';entryText.focus()})
+cancelSubmitBtn.addEventListener('click',()=>{submitModal.style.display='none'})
+
+sendSubmitBtn.addEventListener('click',()=>{const text=(entryText.value||'').trim();if(!text){alert('Please write something before submitting.');return}const base='https://docs.google.com/forms/d/e/1FAIpQLSdvqVLZova0qQxY2wQdKS5iYOZshwb_5ldvYb9oD-xTsKroJA/viewform?usp=pp_url&entry.553840936=here';const encoded=encodeURIComponent(text);const url=base.replace('here',encoded);points=(parseInt(safeGet(pointsKey,'0'),10)||0)+5;safeSet(pointsKey,String(points));renderProfile();hiddenFrame.src=url;submitModal.style.display='none';const prev=feedEntry.textContent;feedEntry.textContent='Thanks — your entry was sent. +5 points awarded.';setTimeout(()=>{feedEntry.textContent=prev},2200)})
+
+let loadedEntries=[]
+let currentIndex=0
+
+async function fetchJFiles(){
+  feedTitle.textContent='Loading feed…'
+  feedEntry.textContent='Contacting GitHub repository to fetch entries…'
+  feedIndex.textContent='0 / 0'
+  try{
+    const api='https://api.github.com/repos/tj-db/collective.ink/git/trees/HEAD?recursive=1'
+    const res=await fetch(api)
+    if(!res.ok)throw new Error('Failed to list repository files')
+    const data=await res.json()
+    const files=(data.tree||[]).filter(f=>f.path&&f.path.endsWith('.j'))
+    if(files.length===0){feedTitle.textContent='No entries found';feedEntry.textContent='Repository contains no .j files.';return}
+    const pickCount=Math.min(5,files.length)
+    const chosen=[]
+    while(chosen.length<pickCount){
+      const idx=Math.floor(Math.random()*files.length)
+      const p=files[idx].path
+      if(!chosen.includes(p))chosen.push(p)
+    }
+    const fetches=chosen.map(p=>{const raw=`https://raw.githubusercontent.com/tj-db/collective.ink/HEAD/${p}`;return fetch(raw).then(r=>r.ok?r.text():Promise.reject(new Error('fetch failed'))).then(text=>({path:p,content:text}))})
+    const results=await Promise.allSettled(fetches)
+    loadedEntries=results.filter(r=>r.status==='fulfilled').map(r=>{const obj=r.value;const name=obj.path.split('/').pop();const firstLine=(obj.content||'').split('\n').find(Boolean)||'';const title=firstLine.length>0?firstLine.slice(0,60):name;return {path:obj.path,content:obj.content,title}})
+    if(loadedEntries.length===0){feedTitle.textContent='No entries loaded';feedEntry.textContent='Could not fetch any .j files.';return}
+    currentIndex=0
+    renderFeed()
+  }catch(err){
+    console.error(err)
+    feedTitle.textContent='Feed error'
+    feedEntry.textContent='Unable to load feed. Check console for details.'
+  }
+}
+
+function renderFeed(){
+  if(!loadedEntries||loadedEntries.length===0){feedTitle.textContent='No entries';feedEntry.textContent='No entries available.';feedIndex.textContent='0 / 0';return}
+  const e=loadedEntries[currentIndex]
+  feedTitle.textContent=e.title||'entry'
+  feedSub.textContent=e.path
+  feedEntry.textContent=e.content||''
+  feedIndex.textContent=`${currentIndex+1} / ${loadedEntries.length}`
+}
+
+prevBtn.addEventListener('click',()=>{if(loadedEntries.length===0)return;currentIndex=(currentIndex-1+loadedEntries.length)%loadedEntries.length;renderFeed()})
+nextBtn.addEventListener('click',()=>{if(loadedEntries.length===0)return;currentIndex=(currentIndex+1)%loadedEntries.length;renderFeed()})
+
+let touchStartX=null
+let touchStartY=null
+const swipeThreshold=40
+
+feedCard.addEventListener('touchstart',(e)=>{const t=e.touches[0];touchStartX=t.clientX;touchStartY=t.clientY},{passive:true})
+feedCard.addEventListener('touchend',(e)=>{if(touchStartX===null)return;const t=e.changedTouches[0];const dx=t.clientX-touchStartX;const dy=t.clientY-touchStartY;touchStartX=null;touchStartY=null;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>swipeThreshold){if(dx<0){nextBtn.click()}else{prevBtn.click()}}})
+
+let mouseDown=false
+let mouseStartX=0
+feedCard.addEventListener('mousedown',(e)=>{mouseDown=true;mouseStartX=e.clientX})
+window.addEventListener('mouseup',(e)=>{if(!mouseDown)return;mouseDown=false;const dx=e.clientX-mouseStartX;if(Math.abs(dx)>swipeThreshold){if(dx<0)nextBtn.click();else prevBtn.click()}})
+
+fetchJFiles()
+
+window.collectiveInk={getState:()=>({uuid,alias,profileImage,points,loadedEntriesCount:loadedEntries.length,currentIndex}),reloadFeed:fetchJFiles}
+</script>
+</body>
+</html>
