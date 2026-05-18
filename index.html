@@ -145,7 +145,6 @@
 
 <button class="fab" id="openSubmit" title="Write a new entry">✎</button>
 
-<iframe id="hiddenSubmitFrame" style="display:none" aria-hidden="true"></iframe>
 
 <script>
 function safeGet(k,d){try{return localStorage.getItem(k)===null?d:localStorage.getItem(k)}catch(e){return d}}
@@ -186,7 +185,7 @@ const feedIndex=document.getElementById('feedIndex')
 const prevBtn=document.getElementById('prevBtn')
 const nextBtn=document.getElementById('nextBtn')
 const feedCard=document.getElementById('feedCard')
-const hiddenFrame=document.getElementById('hiddenSubmitFrame')
+
 
 function renderProfile(){aliasNameEl.textContent=alias||'anon';uuidMetaEl.textContent='ID '+uuid;submitFrom.textContent=alias||'anon';aliasInput.value=alias||'';profileUuid.textContent='UUID: '+uuid;pointsBox.textContent='Points: '+points;if(profileImage&&profileImage.length>0){profileImgEl.src=profileImage;profilePreview.src=profileImage}else{profileImgEl.src='profile.jpg';profilePreview.src='profile.jpg'}}
 renderProfile()
@@ -200,7 +199,7 @@ saveProfileBtn.addEventListener('click',()=>{const newAlias=(aliasInput.value||'
 openSubmitBtn.addEventListener('click',()=>{submitModal.style.display='flex';entryText.value='';entryText.focus()})
 cancelSubmitBtn.addEventListener('click',()=>{submitModal.style.display='none'})
 
-sendSubmitBtn.addEventListener('click',()=>{const text=(entryText.value||'').trim();if(!text){alert('Please write something before submitting.');return}const base='https://docs.google.com/forms/d/e/1FAIpQLSdvqVLZova0qQxY2wQdKS5iYOZshwb_5ldvYb9oD-xTsKroJA/viewform?usp=pp_url&entry.553840936=here';const encoded=encodeURIComponent(text);const url=base.replace('here',encoded);points=(parseInt(safeGet(pointsKey,'0'),10)||0)+5;safeSet(pointsKey,String(points));renderProfile();hiddenFrame.src=url;submitModal.style.display='none';const prev=feedEntry.textContent;feedEntry.textContent='Thanks — your entry was sent. +5 points awarded.';setTimeout(()=>{feedEntry.textContent=prev},2200)})
+sendSubmitBtn.addEventListener('click',()=>{const text=(entryText.value||'').trim();if(!text){alert('Please write something before submitting.');return}points=(parseInt(safeGet(pointsKey,'0'),10)||0)+5;safeSet(pointsKey,String(points));renderProfile();submitModal.style.display='none';const prev=feedEntry.textContent;feedEntry.textContent='Thanks — your entry was sent. +5 points awarded.';setTimeout(()=>{feedEntry.textContent=prev},2200);const formData=new FormData();formData.append('entry.553840936',text);fetch('https://docs.google.com/forms/d/e/1FAIpQLSdvqVLZova0qQxY2wQdKS5iYOZshwb_5ldvYb9oD-xTsKroJA/formResponse',{method:'POST',body:formData,mode:'no-cors'}).catch(()=>{})})
 
 let loadedEntries=[]
 let currentIndex=0
