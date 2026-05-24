@@ -44,7 +44,6 @@
     flex-direction: column;
   }
 
-  /* ── Topbar ── */
   .topbar {
     flex-shrink: 0;
     display: flex;
@@ -115,7 +114,6 @@
     letter-spacing: 0.04em;
   }
 
-  /* ── Feed ── */
   .feed-wrap {
     flex: 1;
     overflow: hidden;
@@ -124,7 +122,6 @@
     flex-direction: column;
   }
 
-  /* Stack viewport */
   .card-stack {
     flex: 1;
     position: relative;
@@ -144,13 +141,12 @@
     user-select: none;
   }
 
-  /* Active card */
   .entry-card.active { transform: translateX(0); opacity: 1; }
-  /* Waiting to the right */
+
   .entry-card.next { transform: translateX(100%); opacity: 0; }
-  /* Already swiped left */
+
   .entry-card.prev { transform: translateX(-100%); opacity: 0; }
-  /* During drag */
+
   .entry-card.dragging { transition: none; }
 
   .card-inner {
@@ -201,7 +197,6 @@
   }
   .card-body::-webkit-scrollbar { display: none; }
 
-  /* Delete affordance (swipe up) */
   .delete-hint {
     font-family: var(--mono);
     font-size: 10px;
@@ -215,7 +210,6 @@
   }
   .entry-card.delete-mode .delete-hint { opacity: 0.8; }
 
-  /* Bottom strip */
   .feed-footer {
     flex-shrink: 0;
     display: flex;
@@ -230,18 +224,7 @@
     color: var(--ink-dim);
     letter-spacing: 0.08em;
   }
-  .swipe-dir {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--ink-dim);
-    opacity: 0.5;
-    letter-spacing: 0.06em;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
 
-  /* Empty state */
   .empty-state {
     position: absolute;
     inset: 0;
@@ -263,7 +246,6 @@
     text-align: center;
   }
 
-  /* ── FAB ── */
   .fab {
     position: fixed;
     right: 20px;
@@ -286,7 +268,7 @@
   .fab:active { transform: scale(0.96); }
   .fab svg { width: 20px; height: 20px; }
 
-  /* ── Modals ── */
+  
   .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -445,7 +427,6 @@
 
   <div class="feed-footer">
     <div class="feed-count" id="feedCount"></div>
-    <div class="swipe-dir">← swipe →</div>
   </div>
 </div>
 
@@ -488,34 +469,18 @@
       <label class="form-label">photo</label>
       <div style="display:flex;align-items:center;gap:14px;">
         <div class="profile-avatar"><img id="profilePreview" src="profile.jpg" alt="preview" /></div>
-        <input type="file" id="profileFile" accept="image/*" style="font-family:var(--mono);font-size:11px;color:var(--ink-dim);" />
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="cancelProfile">cancel</button>
-      <button class="btn btn-primary" id="saveProfile">save</button>
-    </div>
-  </div>
-</div>
-
-<script>
-/* ── Storage helpers ── */
+        <input type="file" id="profileFile" accept="image
 function sg(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}}
 function ss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 
-/* ── User state ── */
 let alias = sg('alias','anon');
 let profileImage = sg('profile-image','');
 
-/* ── Capacity system ──
-   Starts at 50. Each entry written adds 10 slots (capped at 200).
-   Capacity = how many entries the feed can show you. */
 const BASE_CAPACITY = 50;
 const CAP_MAX = 200;
 const CAP_PER_WRITE = 10;
 let capacity = Math.min(CAP_MAX, parseInt(sg('capacity', String(BASE_CAPACITY)), 10) || BASE_CAPACITY);
 
-/* ── Local entries ── */
 function loadEntries(){
   try{return JSON.parse(sg('entries','[]'))||[]}catch(e){return []}
 }
@@ -523,12 +488,10 @@ function saveEntries(arr){
   ss('entries', JSON.stringify(arr));
 }
 
-/* ── Remote entries (from GitHub) ── */
-let remoteEntries = [];   // { from, date, body } — loaded once
-let allEntries = [];      // merged: remote + local, sliced to capacity
+let remoteEntries = [];   
+let allEntries = [];      
 let currentIdx = 0;
 
-/* ── DOM refs ── */
 const aliasNameEl = document.getElementById('aliasName');
 const aliasChip   = document.getElementById('aliasChip');
 const capacityLabel = document.getElementById('capacityLabel');
@@ -545,7 +508,6 @@ const aliasInput  = document.getElementById('aliasInput');
 const profilePreview = document.getElementById('profilePreview');
 const profileFile = document.getElementById('profileFile');
 
-/* ── Render helpers ── */
 function renderTop(){
   aliasNameEl.textContent = alias || 'anon';
   writeFrom.textContent = alias || 'anon';
@@ -556,7 +518,7 @@ function renderCapacity(){
   const total = capacity;
   capacityLabel.textContent = `${used}/${total}`;
 
-  // Show max 10 pips for visual
+  
   const pipCount = Math.min(10, total);
   const filledCount = Math.round((used / total) * pipCount);
   capacityPips.innerHTML = '';
@@ -567,11 +529,10 @@ function renderCapacity(){
   }
 }
 
-/* ── Card DOM pool ── */
 let cardEls = [];
 
 function buildCards(){
-  // Remove old cards (keep empty state)
+  
   cardEls.forEach(c => c.remove());
   cardEls = [];
 
@@ -627,7 +588,6 @@ function setActive(idx){
   renderCount();
 }
 
-/* ── Swipe logic ── */
 let touchStartX=null, touchStartY=null, touchStartTime=null;
 let dragging=false, dragDx=0, dragDy=0;
 const SWIPE_THRESH = 44;
@@ -649,13 +609,13 @@ cardStack.addEventListener('touchmove', e=>{
   dragDy=t.clientY-touchStartY;
   const cur=cardEls[currentIdx];
   if(!cur) return;
-  // Horizontal drag: move card
+  
   if(Math.abs(dragDx)>Math.abs(dragDy)){
     e.preventDefault();
     cur.style.transform=`translateX(${dragDx}px)`;
     cur.style.opacity=String(1-Math.abs(dragDx)/300);
   } else if(dragDy < -20 && cur.dataset.local==='true'){
-    // Upward on local entry — show delete hint
+    
     cur.classList.add('delete-mode');
   }
 },{passive:false});
@@ -676,7 +636,7 @@ cardStack.addEventListener('touchend', e=>{
       if(dragDx<0) goNext(); else goPrev();
     }
   } else if(dragDy < -UP_THRESH){
-    // swipe up — delete if local
+    
     const entry=allEntries[currentIdx];
     if(entry&&entry.local){
       deleteEntry(currentIdx);
@@ -685,7 +645,6 @@ cardStack.addEventListener('touchend', e=>{
   touchStartX=null; touchStartY=null;
 });
 
-/* Mouse drag support */
 let mouseDown=false, mouseStartX=0, mouseStartY=0;
 cardStack.addEventListener('mousedown', e=>{
   mouseDown=true; mouseStartX=e.clientX; mouseStartY=e.clientY;
@@ -714,31 +673,28 @@ function goPrev(){
   if(currentIdx>0) setActive(currentIdx-1);
 }
 
-/* ── Delete entry ── */
 function deleteEntry(idx){
   const entries=loadEntries();
-  // allEntries[idx] should be local, find it in stored entries by body+date
+  
   const target=allEntries[idx];
   const newLocal=entries.filter(e=>!(e.body===target.body&&e.date===target.date));
   saveEntries(newLocal);
   mergeAndRebuild();
 }
 
-/* ── Merge remote + local ── */
 function mergeAndRebuild(){
   const local=loadEntries().map(e=>({...e,local:true}));
-  // local entries first (newest), then remote
+  
   allEntries=[...local, ...remoteEntries].slice(0, capacity);
-  // stamp local flag on card dataset
+  
   buildCards();
-  // After rebuild, stamp local flag on card elements for gesture detection
+  
   allEntries.forEach((e,i)=>{
     if(cardEls[i]) cardEls[i].dataset.local = e.local ? 'true' : 'false';
   });
   renderCapacity();
 }
 
-/* ── Remote fetch ── */
 async function fetchRemote(){
   try{
     const api='https://api.github.com/repos/tj-db/collective.ink/git/trees/HEAD?recursive=1';
@@ -763,14 +719,14 @@ async function fetchRemote(){
       .map(r=>{
         const {path,text}=r.value;
         const lines=text.trim().split('\n').filter(Boolean);
-        // Try to detect "from: name" header line
+        
         let from='anon', body=text.trim(), date='';
         if(lines[0]&&lines[0].toLowerCase().startsWith('from:')){
           from=lines[0].slice(5).trim();
           body=lines.slice(1).join('\n').trim();
         }
         const fname=path.split('/').pop().replace(/\.j$/,'');
-        // fname might encode a timestamp
+        
         const ts=parseInt(fname,10);
         if(!isNaN(ts)&&ts>1e12){
           date=new Date(ts).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
@@ -783,9 +739,8 @@ async function fetchRemote(){
   mergeAndRebuild();
 }
 
-/* ── Submit entry ── */
 document.getElementById('fabWrite').addEventListener('click',()=>{
-  // Check capacity
+  
   const local=loadEntries();
   if(local.length>=capacity){
     writeHint.textContent=`you've reached your viewing limit (${capacity}). submit an entry to unlock more.`;
@@ -801,26 +756,25 @@ document.getElementById('submitWrite').addEventListener('click',()=>{
   const text=(entryText.value||'').trim();
   if(!text){entryText.focus();return;}
 
-  // Save locally
+  
   const local=loadEntries();
   const entry={from:alias||'anon', date:new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}), body:text};
   local.unshift(entry);
   saveEntries(local);
 
-  // Increase capacity
+  
   capacity=Math.min(CAP_MAX, capacity+CAP_PER_WRITE);
   ss('capacity',String(capacity));
 
   writeModal.classList.remove('open');
   mergeAndRebuild();
 
-  // Submit to Google Form (fire-and-forget)
+  
   const fd=new FormData();
   fd.append('entry.553840936',text);
   fetch('https://docs.google.com/forms/d/e/1FAIpQLSdvqVLZova0qQxY2wQdKS5iYOZshwb_5ldvYb9oD-xTsKroJA/formResponse',{method:'POST',body:fd,mode:'no-cors'}).catch(()=>{});
 });
 
-/* ── Profile ── */
 aliasChip.addEventListener('click',()=>{
   aliasInput.value=alias||'';
   if(profileImage) profilePreview.src=profileImage;
@@ -842,14 +796,12 @@ document.getElementById('saveProfile').addEventListener('click',()=>{
   profileModal.classList.remove('open');
 });
 
-/* ── Keyboard nav ── */
 window.addEventListener('keydown',e=>{
   if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
   if(e.key==='ArrowRight'||e.key==='ArrowDown') goNext();
   if(e.key==='ArrowLeft'||e.key==='ArrowUp') goPrev();
 });
 
-/* ── Init ── */
 renderTop();
 fetchRemote();
 </script>
