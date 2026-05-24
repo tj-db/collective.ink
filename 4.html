@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+<title>collective.ink</title>
+<link rel="icon" href="data:," />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+:root {
+--bg: #080a0d;
+--ink: #c8d8e0;
+--ink-dim: #5a6a74;
+--ink-faint: rgba(200,216,224,0.06);
+--accent: #a07858;
+--accent-glow: rgba(160,120,88,0.18);
+--danger: #c0504a;
+--paper: #0d1117;
+--paper-edge: rgba(200,216,224,0.04);
+--radius: 3px;
+--serif: 'Lora', Georgia, serif;
+--mono: 'DM Mono', ui-monospace, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+height: 100%;
+overflow: hidden;
+background: var(--bg);
+}
+
+body {
+height: 100%;
+overflow: hidden;
+font-family: var(--serif);
+color: var(--ink);
+background:
+radial-gradient(ellipse 60% 50% at 30% 20%, rgba(160,120,88,0.04) 0%, transparent 60%),
+radial-gradient(ellipse 50% 60% at 75% 80%, rgba(40,80,120,0.05) 0%, transparent 60%),
+var(--bg);
+display: flex;
+flex-direction: column;
+}
+
+  /* ── Topbar ── */
+.topbar {
+flex-shrink: 0;
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 18px 24px 14px;
+border-bottom: 1px solid var(--paper-edge);
+gap: 12px;
+position: relative;
+z-index: 10;
+}
+
+.wordmark {
+font-family: var(--mono);
+font-size: 12px;
+font-weight: 300;
+letter-spacing: 0.18em;
+color: var(--ink-dim);
+text-transform: lowercase;
+}
+.wordmark span {
+color: var(--accent);
+}
+
+.capacity-bar {
+display: flex;
+align-items: center;
+gap: 10px;
+}
+.capacity-label {
+font-family: var(--mono);
+font-size: 11px;
+color: var(--ink-dim);
+letter-spacing: 0.05em;
+}
+.capacity-pips {
+display: flex;
+gap: 3px;
+}
+.pip {
+width: 5px;
+height: 5px;
+border-radius: 50%;
+background: var(--paper-edge);
+border: 1px solid rgba(200,216,224,0.1);
+transition: background 0.3s, border-color 0.3s;
+}
+.pip.filled {
+background: var(--accent);
+border-color: var(--accent);
+}
+
+.alias-chip {
+display: flex;
+align-items: center;
+gap: 8px;
+cursor: pointer;
+padding: 6px 10px;
+border-radius: var(--radius);
+transition: background 0.2s;
+}
+.alias-chip:hover { background: var(--ink-faint); }
+.alias-chip .name {
+font-family: var(--mono);
+font-size: 12px;
+font-weight: 400;
+color: var(--ink);
+letter-spacing: 0.04em;
+}
+
+  /* ── Feed ── */
+.feed-wrap {
+flex: 1;
+overflow: hidden;
+position: relative;
+display: flex;
+flex-direction: column;
+}
+
+  /* Stack viewport */
+.card-stack {
+flex: 1;
+position: relative;
+overflow: hidden;
+touch-action: pan-y;
+}
+
+.entry-card {
+position: absolute;
+inset: 0;
+display: flex;
+flex-direction: column;
+padding: 32px 28px 24px;
+overflow: hidden;
+will-change: transform, opacity;
+transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.38s ease;
+user-select: none;
+}
+
+  /* Active card */
+.entry-card.active { transform: translateX(0); opacity: 1; }
+  /* Waiting to the right */
+
+.entry-card.next { transform: translateX(100%); opacity: 0; }
+  /* Already swiped left */
+
+.entry-card.prev { transform: translateX(-100%); opacity: 0; }
+  /* During drag */
+
+.entry-card.dragging { transition: none; }
+
+.card-inner {
+max-width: 640px;
+width: 100%;
+margin: 0 auto;
+flex: 1;
+display: flex;
+flex-direction: column;
+gap: 0;
+}
+
+.card-from {
+font-family: var(--mono);
+font-size: 11px;
+letter-spacing: 0.12em;
+color: var(--accent);
+text-transform: lowercase;
+margin-bottom: 6px;
+}
+
+.card-date {
+font-family: var(--mono);
+font-size: 11px;
+color: var(--ink-dim);
+margin-bottom: 24px;
+letter-spacing: 0.05em;
+}
+
+.card-rule {
+width: 32px;
+height: 1px;
+background: var(--accent);
+opacity: 0.4;
+margin-bottom: 24px;
+flex-shrink: 0;
+}
+
+.card-body {
+font-family: var(--serif);
+font-size: 17px;
+line-height: 1.8;
+color: var(--ink);
+white-space: pre-wrap;
+overflow-y: auto;
+flex: 1;
+scrollbar-width: none;
+}
+.card-body::-webkit-scrollbar { display: none; }
+
+  /* Delete affordance (swipe up) */
+.delete-hint {
+font-family: var(--mono);
+font-size: 10px;
+letter-spacing: 0.1em;
+color: var(--danger);
+opacity: 0;
+text-align: center;
+margin-top: 12px;
+transition: opacity 0.2s;
+flex-shrink: 0;
+}
+.entry-card.delete-mode .delete-hint { opacity: 0.8; }
+
+  /* Bottom strip */
+.feed-footer {
+flex-shrink: 0;
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 10px 28px 14px;
+border-top: 1px solid var(--paper-edge);
+}
+.feed-count {
+font-family: var(--mono);
+font-size: 11px;
+color: var(--ink-dim);
+letter-spacing: 0.08em;
+}
+  .swipe-dir {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-dim);
+    opacity: 0.5;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Empty state */
+.empty-state {
+position: absolute;
+inset: 0;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+gap: 12px;
+opacity: 0;
+pointer-events: none;
+transition: opacity 0.4s;
+}
+.empty-state.visible { opacity: 1; pointer-events: auto; }
+.empty-state p {
+font-family: var(--mono);
+font-size: 12px;
+color: var(--ink-dim);
+letter-spacing: 0.08em;
+text-align: center;
+}
+
+  /* ── FAB ── */
+.fab {
+position: fixed;
+right: 20px;
+bottom: 20px;
+width: 52px;
+height: 52px;
+border-radius: 50%;
+background: var(--accent);
+border: none;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+box-shadow: 0 8px 24px rgba(160,120,88,0.28);
+transition: transform 0.2s, box-shadow 0.2s;
+z-index: 50;
+color: #0a0806;
+}
+.fab:hover { transform: scale(1.07); box-shadow: 0 12px 32px rgba(160,120,88,0.36); }
+.fab:active { transform: scale(0.96); }
+.fab svg { width: 20px; height: 20px; }
+
+  /* ── Modals ── */
+  
+.modal-backdrop {
+position: fixed;
+inset: 0;
+background: rgba(4,6,8,0.85);
+display: none;
+align-items: center;
+justify-content: center;
+padding: 20px;
+z-index: 100;
+backdrop-filter: blur(4px);
+}
+.modal-backdrop.open { display: flex; }
+
+.modal {
+width: 100%;
+max-width: 560px;
+background: var(--paper);
+border: 1px solid var(--paper-edge);
+border-radius: 6px;
+padding: 28px;
+box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+animation: modal-in 0.25s cubic-bezier(0.22,1,0.36,1);
+}
+@keyframes modal-in {
+from { transform: translateY(12px); opacity: 0; }
+to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-title {
+font-family: var(--mono);
+font-size: 11px;
+letter-spacing: 0.16em;
+color: var(--accent);
+text-transform: uppercase;
+margin-bottom: 20px;
+}
+
+.form-field {
+margin-bottom: 16px;
+display: flex;
+flex-direction: column;
+gap: 6px;
+}
+.form-label {
+font-family: var(--mono);
+font-size: 10px;
+letter-spacing: 0.12em;
+color: var(--ink-dim);
+text-transform: uppercase;
+}
+.form-input, .form-textarea {
+background: rgba(200,216,224,0.03);
+border: 1px solid rgba(200,216,224,0.08);
+border-radius: var(--radius);
+color: var(--ink);
+font-family: var(--serif);
+font-size: 15px;
+padding: 10px 12px;
+outline: none;
+transition: border-color 0.2s;
+width: 100%;
+}
+.form-input:focus, .form-textarea:focus {
+border-color: var(--accent);
+}
+.form-textarea {
+min-height: 180px;
+resize: vertical;
+line-height: 1.7;
+}
+
+.modal-hint {
+font-family: var(--mono);
+font-size: 10px;
+color: var(--ink-dim);
+letter-spacing: 0.05em;
+margin-top: -8px;
+margin-bottom: 16px;
+line-height: 1.6;
+}
+
+.modal-actions {
+display: flex;
+gap: 8px;
+justify-content: flex-end;
+margin-top: 20px;
+}
+.btn {
+font-family: var(--mono);
+font-size: 11px;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+padding: 9px 18px;
+border-radius: var(--radius);
+border: 1px solid transparent;
+cursor: pointer;
+transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+.btn-ghost {
+background: transparent;
+border-color: rgba(200,216,224,0.08);
+color: var(--ink-dim);
+}
+.btn-ghost:hover { background: var(--ink-faint); color: var(--ink); }
+.btn-primary {
+background: var(--accent);
+color: #0a0806;
+font-weight: 400;
+}
+.btn-primary:hover { opacity: 0.9; }
+
+.profile-avatar {
+width: 52px;
+height: 52px;
+border-radius: 50%;
+overflow: hidden;
+border: 1px solid rgba(200,216,224,0.06);
+flex-shrink: 0;
+}
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+@media (max-width: 600px) {
+.topbar { padding: 14px 16px 10px; }
+.entry-card { padding: 24px 18px 18px; }
+.feed-footer { padding: 8px 18px 12px; }
+.modal { padding: 20px; }
+.capacity-pips { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+<div class="wordmark">collective<span>.</span>ink</div>
+
+<div class="capacity-bar" id="capacityBar">
+<div class="capacity-label" id="capacityLabel">0/50</div>
+<div class="capacity-pips" id="capacityPips"></div>
+</div>
+
+<div class="alias-chip" id="aliasChip" title="Edit profile">
+<div class="name" id="aliasName">anon</div>
+</div>
+</div>
+
+<!-- Feed -->
+<div class="feed-wrap">
+<div class="card-stack" id="cardStack">
+<!-- Cards injected by JS -->
+<div class="empty-state" id="emptyState">
+<p>no entries yet</p>
+<p>write something to begin</p>
+</div>
+</div>
+
+<div class="feed-footer">
+<div class="feed-count" id="feedCount"></div>
+    <div class="swipe-dir">← swipe →</div>
+</div>
+</div>
+
+<!-- FAB: Write -->
+<button class="fab" id="fabWrite" title="Write an entry">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+</svg>
+</button>
+
+<!-- Write Modal -->
+<div class="modal-backdrop" id="writeModal">
+<div class="modal" role="dialog" aria-modal="true">
+<div class="modal-title">new entry</div>
+<div class="form-field">
+<label class="form-label">from</label>
+<div style="font-family:var(--mono);font-size:12px;color:var(--ink-dim);padding:4px 0;" id="writeFrom">anon</div>
+</div>
+<div class="form-field">
+<label class="form-label">entry</label>
+<textarea class="form-textarea" id="entryText" placeholder="Write something…"></textarea>
+</div>
+<div class="modal-hint" id="writeHint"></div>
+<div class="modal-actions">
+<button class="btn btn-ghost" id="cancelWrite">cancel</button>
+<button class="btn btn-primary" id="submitWrite">submit</button>
+</div>
+</div>
+</div>
+
+<!-- Profile Modal -->
+<div class="modal-backdrop" id="profileModal">
+<div class="modal" role="dialog" aria-modal="true">
+<div class="modal-title">profile</div>
+<div class="form-field">
+<label class="form-label">name</label>
+<input class="form-input" type="text" id="aliasInput" placeholder="anon" maxlength="40" />
+</div>
+<div class="form-field">
+<label class="form-label">photo</label>
+<div style="display:flex;align-items:center;gap:14px;">
+<div class="profile-avatar"><img id="profilePreview" src="profile.jpg" alt="preview" /></div>
+        <input type="file" id="profileFile" accept="image/*" style="font-family:var(--mono);font-size:11px;color:var(--ink-dim);" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelProfile">cancel</button>
+      <button class="btn btn-primary" id="saveProfile">save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Storage helpers ── */
+        <input type="file" id="profileFile" accept="image
+function sg(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}}
+function ss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+
+/* ── User state ── */
+let alias = sg('alias','anon');
+let profileImage = sg('profile-image','');
+
+/* ── Capacity system ──
+   Starts at 50. Each entry written adds 10 slots (capped at 200).
+   Capacity = how many entries the feed can show you. */
+const BASE_CAPACITY = 50;
+const CAP_MAX = 200;
+const CAP_PER_WRITE = 10;
+let capacity = Math.min(CAP_MAX, parseInt(sg('capacity', String(BASE_CAPACITY)), 10) || BASE_CAPACITY);
+
+/* ── Local entries ── */
+function loadEntries(){
+ try{return JSON.parse(sg('entries','[]'))||[]}catch(e){return []}
+}
+function saveEntries(arr){
+ ss('entries', JSON.stringify(arr));
+}
+
+/* ── Remote entries (from GitHub) ── */
+let remoteEntries = [];   // { from, date, body } — loaded once
+let allEntries = [];      // merged: remote + local, sliced to capacity
+let remoteEntries = [];   
+let allEntries = [];      
+let currentIdx = 0;
+
+/* ── DOM refs ── */
+const aliasNameEl = document.getElementById('aliasName');
+const aliasChip   = document.getElementById('aliasChip');
+const capacityLabel = document.getElementById('capacityLabel');
+const capacityPips  = document.getElementById('capacityPips');
+const feedCount   = document.getElementById('feedCount');
+const cardStack   = document.getElementById('cardStack');
+const emptyState  = document.getElementById('emptyState');
+const writeModal  = document.getElementById('writeModal');
+const profileModal= document.getElementById('profileModal');
+const entryText   = document.getElementById('entryText');
+const writeFrom   = document.getElementById('writeFrom');
+const writeHint   = document.getElementById('writeHint');
+const aliasInput  = document.getElementById('aliasInput');
+const profilePreview = document.getElementById('profilePreview');
+const profileFile = document.getElementById('profileFile');
+
+/* ── Render helpers ── */
+function renderTop(){
+ aliasNameEl.textContent = alias || 'anon';
+ writeFrom.textContent = alias || 'anon';
+}
+
+function renderCapacity(){
+ const used = Math.min(allEntries.length, capacity);
+ const total = capacity;
+ capacityLabel.textContent = `${used}/${total}`;
+
+  // Show max 10 pips for visual
+  
+ const pipCount = Math.min(10, total);
+ const filledCount = Math.round((used / total) * pipCount);
+ capacityPips.innerHTML = '';
+ for(let i=0;i<pipCount;i++){
+   const pip = document.createElement('div');
+   pip.className = 'pip' + (i < filledCount ? ' filled' : '');
+   capacityPips.appendChild(pip);
+ }
+}
+
+/* ── Card DOM pool ── */
+let cardEls = [];
+
+function buildCards(){
+  // Remove old cards (keep empty state)
+  
+ cardEls.forEach(c => c.remove());
+ cardEls = [];
+
+ if(!allEntries.length){
+   emptyState.classList.add('visible');
+   feedCount.textContent = '';
+   return;
+ }
+ emptyState.classList.remove('visible');
+
+ const visible = Math.min(allEntries.length, capacity);
+ for(let i=0;i<visible;i++){
+   const e = allEntries[i];
+   const card = document.createElement('div');
+   card.className = 'entry-card' + (i===0?' active':' next');
+   card.dataset.index = i;
+   card.innerHTML = `
+     <div class="card-inner">
+<div class="card-from">${esc(e.from||'anon')}</div>
+<div class="card-date">${esc(e.date||'')}</div>
+<div class="card-rule"></div>
+<div class="card-body">${esc(e.body||'')}</div>
+${e.local ? `<div class="delete-hint">↑ swipe up to delete</div>` : ''}
+</div>
+`;
+cardStack.insertBefore(card, emptyState);
+cardEls.push(card);
+}
+currentIdx = 0;
+renderCount();
+}
+
+function esc(s){
+return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderCount(){
+if(!allEntries.length){ feedCount.textContent=''; return; }
+const visible = Math.min(allEntries.length, capacity);
+feedCount.textContent = `${currentIdx+1} / ${visible}`;
+}
+
+function setActive(idx){
+if(!cardEls.length) return;
+const clamped = Math.max(0, Math.min(cardEls.length-1, idx));
+currentIdx = clamped;
+cardEls.forEach((c,i)=>{
+c.classList.remove('active','prev','next','dragging');
+if(i===clamped) c.classList.add('active');
+else if(i<clamped) c.classList.add('prev');
+else c.classList.add('next');
+});
+renderCount();
+}
+
+/* ── Swipe logic ── */
+let touchStartX=null, touchStartY=null, touchStartTime=null;
+let dragging=false, dragDx=0, dragDy=0;
+const SWIPE_THRESH = 44;
+const UP_THRESH = 60;
+
+cardStack.addEventListener('touchstart', e=>{
+const t=e.touches[0];
+touchStartX=t.clientX; touchStartY=t.clientY;
+touchStartTime=Date.now();
+dragging=true; dragDx=0; dragDy=0;
+const cur=cardEls[currentIdx];
+if(cur) cur.classList.add('dragging');
+},{passive:true});
+
+cardStack.addEventListener('touchmove', e=>{
+if(!dragging||touchStartX===null) return;
+const t=e.touches[0];
+dragDx=t.clientX-touchStartX;
+dragDy=t.clientY-touchStartY;
+const cur=cardEls[currentIdx];
+if(!cur) return;
+  // Horizontal drag: move card
+  
+if(Math.abs(dragDx)>Math.abs(dragDy)){
+e.preventDefault();
+cur.style.transform=`translateX(${dragDx}px)`;
+cur.style.opacity=String(1-Math.abs(dragDx)/300);
+} else if(dragDy < -20 && cur.dataset.local==='true'){
+    // Upward on local entry — show delete hint
+    
+cur.classList.add('delete-mode');
+}
+},{passive:false});
+
+cardStack.addEventListener('touchend', e=>{
+if(!dragging) return;
+dragging=false;
+const cur=cardEls[currentIdx];
+if(!cur){touchStartX=null;return;}
+cur.classList.remove('dragging','delete-mode');
+cur.style.transform=''; cur.style.opacity='';
+
+const dt=Date.now()-touchStartTime;
+const isQuick=dt<400;
+
+if(Math.abs(dragDx)>Math.abs(dragDy)){
+if(Math.abs(dragDx)>SWIPE_THRESH||(isQuick&&Math.abs(dragDx)>20)){
+if(dragDx<0) goNext(); else goPrev();
+}
+} else if(dragDy < -UP_THRESH){
+    // swipe up — delete if local
+    
+const entry=allEntries[currentIdx];
+if(entry&&entry.local){
+deleteEntry(currentIdx);
+}
+}
+touchStartX=null; touchStartY=null;
+});
+
+/* Mouse drag support */
+let mouseDown=false, mouseStartX=0, mouseStartY=0;
+cardStack.addEventListener('mousedown', e=>{
+mouseDown=true; mouseStartX=e.clientX; mouseStartY=e.clientY;
+const cur=cardEls[currentIdx]; if(cur) cur.classList.add('dragging');
+});
+window.addEventListener('mousemove', e=>{
+if(!mouseDown) return;
+const dx=e.clientX-mouseStartX;
+const cur=cardEls[currentIdx]; if(!cur) return;
+cur.style.transform=`translateX(${dx}px)`;
+cur.style.opacity=String(1-Math.abs(dx)/300);
+});
+window.addEventListener('mouseup', e=>{
+if(!mouseDown) return;
+mouseDown=false;
+const dx=e.clientX-mouseStartX;
+const cur=cardEls[currentIdx];
+if(cur){cur.classList.remove('dragging');cur.style.transform='';cur.style.opacity='';}
+if(Math.abs(dx)>SWIPE_THRESH){ if(dx<0) goNext(); else goPrev(); }
+});
+
+function goNext(){
+if(currentIdx<cardEls.length-1) setActive(currentIdx+1);
+}
+function goPrev(){
+if(currentIdx>0) setActive(currentIdx-1);
+}
+
+/* ── Delete entry ── */
+function deleteEntry(idx){
+const entries=loadEntries();
+  // allEntries[idx] should be local, find it in stored entries by body+date
+  
+const target=allEntries[idx];
+const newLocal=entries.filter(e=>!(e.body===target.body&&e.date===target.date));
+saveEntries(newLocal);
+mergeAndRebuild();
+}
+
+/* ── Merge remote + local ── */
+function mergeAndRebuild(){
+const local=loadEntries().map(e=>({...e,local:true}));
+  // local entries first (newest), then remote
+  
+allEntries=[...local, ...remoteEntries].slice(0, capacity);
+  // stamp local flag on card dataset
+  
+buildCards();
+  // After rebuild, stamp local flag on card elements for gesture detection
+  
+allEntries.forEach((e,i)=>{
+if(cardEls[i]) cardEls[i].dataset.local = e.local ? 'true' : 'false';
+});
+renderCapacity();
+}
+
+/* ── Remote fetch ── */
+async function fetchRemote(){
+try{
+const api='https://api.github.com/repos/tj-db/collective.ink/git/trees/HEAD?recursive=1';
+const res=await fetch(api);
+if(!res.ok) throw new Error('list failed');
+const data=await res.json();
+const files=(data.tree||[]).filter(f=>f.path&&f.path.endsWith('.j'));
+if(!files.length){mergeAndRebuild();return;}
+const pickCount=Math.min(40,files.length);
+const chosen=[];
+while(chosen.length<pickCount){
+const p=files[Math.floor(Math.random()*files.length)].path;
+if(!chosen.includes(p)) chosen.push(p);
+}
+const fetches=chosen.map(p=>{
+const raw=`https://raw.githubusercontent.com/tj-db/collective.ink/HEAD/${p}`;
+return fetch(raw).then(r=>r.ok?r.text():null).then(text=>text?{path:p,text}:null);
+});
+const results=await Promise.allSettled(fetches);
+remoteEntries=results
+.filter(r=>r.status==='fulfilled'&&r.value)
+.map(r=>{
+const {path,text}=r.value;
+const lines=text.trim().split('\n').filter(Boolean);
+        // Try to detect "from: name" header line
+        
+let from='anon', body=text.trim(), date='';
+if(lines[0]&&lines[0].toLowerCase().startsWith('from:')){
+from=lines[0].slice(5).trim();
+body=lines.slice(1).join('\n').trim();
+}
+const fname=path.split('/').pop().replace(/\.j$/,'');
+        // fname might encode a timestamp
+        
+const ts=parseInt(fname,10);
+if(!isNaN(ts)&&ts>1e12){
+date=new Date(ts).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+}
+return {from,date,body,local:false};
+});
+}catch(e){
+console.warn('Remote fetch failed', e);
+}
+mergeAndRebuild();
+}
+
+/* ── Submit entry ── */
+document.getElementById('fabWrite').addEventListener('click',()=>{
+  // Check capacity
+  
+const local=loadEntries();
+if(local.length>=capacity){
+writeHint.textContent=`you've reached your viewing limit (${capacity}). submit an entry to unlock more.`;
+} else {
+writeHint.textContent=`writing an entry unlocks ${CAP_PER_WRITE} more slots.`;
+}
+entryText.value='';
+writeModal.classList.add('open');
+setTimeout(()=>entryText.focus(),50);
+});
+document.getElementById('cancelWrite').addEventListener('click',()=>{writeModal.classList.remove('open');});
+document.getElementById('submitWrite').addEventListener('click',()=>{
+const text=(entryText.value||'').trim();
+if(!text){entryText.focus();return;}
+
+  // Save locally
+  
+const local=loadEntries();
+const entry={from:alias||'anon', date:new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}), body:text};
+local.unshift(entry);
+saveEntries(local);
+
+  // Increase capacity
+  
+capacity=Math.min(CAP_MAX, capacity+CAP_PER_WRITE);
+ss('capacity',String(capacity));
+
+writeModal.classList.remove('open');
+mergeAndRebuild();
+
+  // Submit to Google Form (fire-and-forget)
+  
+const fd=new FormData();
+fd.append('entry.553840936',text);
+fetch('https://docs.google.com/forms/d/e/1FAIpQLSdvqVLZova0qQxY2wQdKS5iYOZshwb_5ldvYb9oD-xTsKroJA/formResponse',{method:'POST',body:fd,mode:'no-cors'}).catch(()=>{});
+});
+
+/* ── Profile ── */
+aliasChip.addEventListener('click',()=>{
+aliasInput.value=alias||'';
+if(profileImage) profilePreview.src=profileImage;
+profileModal.classList.add('open');
+setTimeout(()=>aliasInput.focus(),50);
+});
+document.getElementById('cancelProfile').addEventListener('click',()=>profileModal.classList.remove('open'));
+profileFile.addEventListener('change',e=>{
+const f=e.target.files&&e.target.files[0]; if(!f) return;
+const r=new FileReader(); r.onload=()=>{profilePreview.src=r.result}; r.readAsDataURL(f);
+});
+document.getElementById('saveProfile').addEventListener('click',()=>{
+alias=(aliasInput.value||'').trim()||'anon';
+ss('alias',alias);
+if(profilePreview.src&&profilePreview.src.startsWith('data:')){
+profileImage=profilePreview.src; ss('profile-image',profileImage);
+}
+renderTop();
+profileModal.classList.remove('open');
+});
+
+/* ── Keyboard nav ── */
+window.addEventListener('keydown',e=>{
+if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
+if(e.key==='ArrowRight'||e.key==='ArrowDown') goNext();
+if(e.key==='ArrowLeft'||e.key==='ArrowUp') goPrev();
+});
+
+/* ── Init ── */
+renderTop();
+fetchRemote();
+</script>
+</body>
+</html>
