@@ -809,14 +809,18 @@ sendSubmitBtn.addEventListener('click',()=>{
   renderFeed();
   showToast('entry saved · +1 capacity');
 
-  const payload={
-    author:alias||'anon',
-    uuid:uuid,
-    date:new Date().toISOString(),
-    title:titleLine,
-    entry:bodyText,
-    comment:''
-  };
+const payload = {
+  author: alias || 'anon',
+  uuid: uuid,
+  date: new Date().toISOString(),
+  title: lines[0] || 'untitled',
+  entry: lines.slice(1).join('\n').trimStart() || entry.content || '',
+  comment: text,
+  entry_uuid: entry.id,
+  entry_folder: entry.path
+                 ? entry.path.split('/').slice(0, 2).join('/')
+                 : null
+};
   const fd=new FormData();
   fd.append('entry.553840936', JSON.stringify(payload));
   fetch('https://docs.google.com/forms/d/e/1FAIpQLSdvqVLZova0qQxY2wQdKS5iYOZshwb_5ldvYb9oD-xTsKroJA/formResponse',{method:'POST',body:fd,mode:'no-cors'}).catch(()=>{});
