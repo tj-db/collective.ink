@@ -568,7 +568,7 @@
   </div>
 </div>
 
-
+<!-- Profile Modal -->
 <div class="modal-backdrop" id="profileModal" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-title">Profile</div>
@@ -594,27 +594,29 @@
 </div>
 
 <script>
-
+// ── Storage helpers ──
 function safeGet(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}}
 function safeSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function safeGetJSON(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}}
 function safeSetJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 
-
+// ── Identity ──
 function makeUUID(){const t=Date.now();const r=(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():Math.random().toString(36).slice(2,10);return t+'-'+r}
 let uuid=safeGet('uuid',null);if(!uuid){uuid=makeUUID();safeSet('uuid',uuid)}
 let alias=safeGet('alias','anon');
 let profileImage=safeGet('profile-image','');
 
-
+// ── Capacity system ──
+// Each written entry grants +1 capacity slot (base = 5)
 const BASE_CAPACITY=5;
 let writtenCount=parseInt(safeGet('written-count','0'),10)||0;
 function totalCapacity(){return BASE_CAPACITY+writtenCount;}
 
-
+// ── Local entries storage ──
+// Entries are stored as array of {id, content, title, ts}
 let localEntries=safeGetJSON('local-entries',[]);
 
-─
+// ── DOM refs ──
 const aliasNameEl=document.getElementById('aliasBox');
 const profileImgEl=document.getElementById('profileImg');
 const capacityBox=document.getElementById('capacityBox');
@@ -642,7 +644,7 @@ const deleteBtn=document.getElementById('deleteBtn');
 const toast=document.getElementById('toast');
 const commentCountEl=document.getElementById('commentCount');
 
-
+// ── Toast ──
 let toastTimer=null;
 function showToast(msg,dur=2200){
   toast.textContent=msg;
@@ -651,7 +653,7 @@ function showToast(msg,dur=2200){
   toastTimer=setTimeout(()=>toast.classList.remove('show'),dur);
 }
 
-
+// ── Render profile ──
 function renderProfile(){
   submitFrom.textContent=alias||'anon';
   aliasInput.value=alias||'';
@@ -666,7 +668,7 @@ function renderProfile(){
   capTotalEl.textContent=totalCapacity();
 }
 
-
+// ── Profile modal ──
 profileBtn.addEventListener('click',()=>{profileModal.style.display='flex'});
 aliasNameEl.addEventListener('click',()=>{profileModal.style.display='flex';setTimeout(()=>aliasInput.focus(),60)});
 closeProfileBtn.addEventListener('click',()=>{profileModal.style.display='none'});
@@ -681,7 +683,7 @@ saveProfileBtn.addEventListener('click',()=>{
   profileModal.style.display='none';
 });
 
-
+// ── Entries ──
 let loadedEntries=[];
 let currentIndex=0;
 
@@ -707,12 +709,12 @@ function renderFeed(direction){
   feedEntry.textContent=body;
   feedIndex.textContent=`${currentIndex+1} / ${loadedEntries.length}`;
 
-
+  // animate
   feedCard.classList.remove('animating-in','animating-out-left','animating-out-right');
   void feedCard.offsetWidth;
   feedCard.classList.add('animating-in');
 
-
+  // update comment badge for current entry
   const _eid=e.id||null;
   if(_eid){
     const _cmts=safeGetJSON('comments-'+_eid,[]);
@@ -744,13 +746,13 @@ function navigate(dir){
   },230);
 }
 
-
+// ── Keyboard nav ──
 feedCard.addEventListener('keydown',(e)=>{
   if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();navigate(1);}
   else if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();navigate(-1);}
 });
 
-
+// ── Touch swipe ──
 let touchStartX=null,touchStartY=null,touchStartTime=null,isDragging=false;
 const SWIPE_THRESHOLD=45;
 const DRAG_THRESHOLD=12;
@@ -788,7 +790,7 @@ feedCard.addEventListener('touchend',(e)=>{
   }
 },{passive:true});
 
-
+// ── Mouse drag (desktop) ──
 let mouseDown=false,mouseStartX=0,mouseStartY=0;
 feedCard.addEventListener('mousedown',(e)=>{mouseDown=true;mouseStartX=e.clientX;mouseStartY=e.clientY;});
 window.addEventListener('mouseup',(e)=>{
@@ -800,22 +802,22 @@ window.addEventListener('mouseup',(e)=>{
   }
 });
 
-
+// ── Delete button ──
 deleteBtn.addEventListener('click',()=>deleteCurrentEntry());
 
-
+// ── Delete entry ──
 function deleteCurrentEntry(){
   if(!loadedEntries.length)return;
   loadedEntries.splice(currentIndex,1);
-  safeSetJSON('local-entries',localEntries.filter((_,i)=>true));
-
+  safeSetJSON('local-entries',localEntries.filter((_,i)=>true)); // we'll derive from loadedEntries
+  // persist only local entries (those with .local flag)
   safeSetJSON('local-entries',loadedEntries.filter(e=>e.local));
   if(currentIndex>=loadedEntries.length&&currentIndex>0)currentIndex--;
   showToast('entry removed');
   renderFeed();
 }
 
-
+// ── Submit new entry ──
 openSubmitBtn.addEventListener('click',()=>{
   submitModal.style.display='flex';
   entryText.value='';
@@ -826,11 +828,11 @@ cancelSubmitBtn.addEventListener('click',()=>{submitModal.style.display='none';}
 sendSubmitBtn.addEventListener('click',()=>{
   const text=(entryText.value||'').trim();
   if(!text){showToast('write something first');return;}
-
+  // capacity check
   if(loadedEntries.length>=totalCapacity()){
     showToast(`capacity full — write more to unlock slots`);return;
   }
-
+  // increment written count → more capacity
   writtenCount++;
   safeSet('written-count',String(writtenCount));
 
@@ -846,14 +848,14 @@ sendSubmitBtn.addEventListener('click',()=>{
     local:true
   };
   loadedEntries.push(newEntry);
-
+  // persist local entries
   safeSetJSON('local-entries',loadedEntries.filter(e=>e.local));
   currentIndex=loadedEntries.length-1;
   submitModal.style.display='none';
   renderFeed();
   showToast('entry saved · +1 capacity');
 
-
+  // Post JSON-styled payload to Google Forms (fire and forget)
   const payload={
     author:alias||'anon',
     uuid:uuid,
@@ -867,7 +869,8 @@ sendSubmitBtn.addEventListener('click',()=>{
   fetch('https://docs.google.com/forms/d/e/1FAIpQLSdvqVLZova0qQxY2wQdKS5iYOZshwb_5ldvYb9oD-xTsKroJA/formResponse',{method:'POST',body:fd,mode:'no-cors'}).catch(()=>{});
 });
 
-
+// ── Comment system ──
+// Comments stored per entry id: 'comments-{entryId}' → [{id,author,uuid,text,ts,own}]
 const commentPanel=document.getElementById('commentPanel');
 const commentFeed=document.getElementById('commentFeed');
 const commentEmpty=document.getElementById('commentEmpty');
@@ -906,16 +909,16 @@ function avatarInitials(name){return(name||'?').charAt(0).toUpperCase();}
 function renderComments(){
   const entryId=currentEntryId();
   const comments=getComments(entryId);
-
+  // update badge
   if(comments.length>0){
     commentCountEl.textContent=comments.length>99?'99+':comments.length;
     commentCountEl.classList.add('has-comments');
   }else{
     commentCountEl.classList.remove('has-comments');
   }
-
+  // render feed
   commentEmpty.style.display=comments.length?'none':'block';
-
+  // remove old bubbles
   Array.from(commentFeed.querySelectorAll('.comment-bubble')).forEach(el=>el.remove());
   comments.forEach(c=>{
     const isOwn=c.uuid===uuid;
@@ -940,7 +943,7 @@ function renderComments(){
     bubble.appendChild(avatarEl);bubble.appendChild(contentEl);
     commentFeed.appendChild(bubble);
   });
-
+  // scroll to bottom
   commentFeed.scrollTop=commentFeed.scrollHeight;
 }
 
@@ -956,13 +959,13 @@ openCommentBtn.addEventListener('click',openComments);
 closeCommentBtn.addEventListener('click',()=>{commentPanel.style.display='none';});
 commentPanel.addEventListener('click',(e)=>{if(e.target===commentPanel)commentPanel.style.display='none';});
 
-
+// auto-resize textarea
 commentInput.addEventListener('input',()=>{
   commentInput.style.height='auto';
   commentInput.style.height=Math.min(commentInput.scrollHeight,120)+'px';
 });
 
-
+// send on Enter (Shift+Enter for newline)
 commentInput.addEventListener('keydown',(e)=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();postComment();}
 });
@@ -989,7 +992,7 @@ function postComment(){
   commentInput.style.height='auto';
   renderComments();
 
-
+  // Also submit to Google Forms with entry context
   const entry=loadedEntries[currentIndex]||{};
   const lines=(entry.content||'').split('\n');
   const payload={
@@ -1005,7 +1008,7 @@ function postComment(){
   fetch('https://docs.google.com/forms/d/e/1FAIpQLSdvqVLZova0qQxY2wQdKS5iYOZshwb_5ldvYb9oD-xTsKroJA/formResponse',{method:'POST',body:fd,mode:'no-cors'}).catch(()=>{});
 }
 
-
+// ── Fetch remote entries from GitHub ──
 async function fetchRemoteEntries(){
   feedTitle.textContent='Loading…';
   feedEntry.textContent='';
@@ -1063,7 +1066,7 @@ document.querySelectorAll('.modal-backdrop').forEach(b=>{
 
 
 renderProfile();
-
+// Load saved local entries first so UI isn't blank
 const savedLocal=safeGetJSON('local-entries',[]);
 if(Array.isArray(savedLocal)&&savedLocal.length){
   loadedEntries=savedLocal;
