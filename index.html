@@ -772,7 +772,7 @@ feedCard.addEventListener('touchmove',(e)=>{
   if(!isDragging&&(Math.abs(dx)>DRAG_THRESHOLD||Math.abs(dy)>DRAG_THRESHOLD)){isDragging=true;}
   if(isDragging&&Math.abs(dx)>Math.abs(dy)){
     feedCard.style.transform=`translateX(${dx*0.4}px) rotate(${dx*0.02}deg)`;
-    e.preventDefault();
+    if(e.cancelable)e.preventDefault();
   }
 },{passive:false});
 
